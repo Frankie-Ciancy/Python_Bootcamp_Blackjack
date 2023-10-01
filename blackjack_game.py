@@ -16,6 +16,7 @@ class Card:
     '''
     All cards have a suit, a rank and a value.
     '''
+
     # defines card suit, rank, value
     def __init__(self, suit, rank):
         self.suit = suit
@@ -34,6 +35,7 @@ class Deck:
     '''
     Constituting the deck with a for loop until all card combinations are in the deck
     '''
+
     def __init__(self):
         self.all_cards = []
         for suit in suits:
@@ -66,14 +68,12 @@ class Deck:
             new_card.value = int(answer)
         return new_card
 
-new_deck = Deck()
-new_deck.shuffle()
-
 
 class Player:
     '''
     the human player of this came
     '''
+
     def __init__(self, money):
         self.money = money
         self.cards = []
@@ -95,6 +95,9 @@ class Player:
         '''
         allowed_range = range(1, self.money + 1)
 
+        # TODO is responsability of the player to vet the output?
+        # TODO this could be a function like: validate bet input (?)
+        # but keep the bet_amount) > self.money:
         while str(self.bet_amount).isdigit() is False or int(self.bet_amount) not in allowed_range:
             self.bet_amount = input("How much do you want to bet?")
             if self.bet_amount.isdigit() is False:
@@ -108,11 +111,12 @@ class Player:
                 continue
         print(f"alright, you will bet {self.bet_amount}")
 
+        # TODO i think you should check here that one can bet the amount
         self.bet_amount = int(self.bet_amount)
         self.money -= self.bet_amount
 
-    # TODO if you call it "add money" is more reusable.
-    def add_won_money(self):
+    # TODO game master responsibility
+    def give_prize(self):
         '''
         if you win, it will add double the money you bet
         :return: update to money
@@ -134,20 +138,37 @@ class Player:
         if the player decides to hit (add a card)
         :return: new card in hand, check for bust/win
         '''
-        self.cards.append(new_deck.deal_one())
+        self.cards.append(game_master.new_deck.deal_one())
         self.card_value_update()
-        visual_during_game()
-        check_bust(player)
-        check_twentyone(player)
 
-
-player = Player(15)
+    #TODO: input output
+    # todo: put it in game logic
+    def plays(self):
+        '''
+        the player either does not respond properly, "hits" (wants another card) or leaves it.
+        :return:
+        '''
+        game_master.check_end_game_conditions()
+        hit_decision = True
+        while hit_decision is True:
+            hit_answer = input("Do you want another card? type Y or N").upper()
+            if hit_answer not in ("Y", "N"):
+                print("Invalid input! Do you want another card, Y or N?")
+                continue
+            if hit_answer == "Y":
+                game_master.player.hit()
+                game_master.show_hands()
+                game_master.check_end_game_conditions()
+                continue
+            else:
+                hit_decision = False
 
 
 class Dealer:
     '''
     the computer dealer
     '''
+
     def __init__(self):
         self.cards = []
         self.card_value = 0
@@ -167,174 +188,137 @@ class Dealer:
         adding a card to the dealer's deck
         :return:a Card
         '''
-        check_twentyone(dealer)
+        game_master.check_end_game_conditions()
         print("the dealer draws a card...")
-        self.cards.append(new_deck.deal_one())
+        self.cards.append(game_master.new_deck.deal_one())
         self.card_value_update()
-        visual_during_game()
-        check_bust(dealer)
-        check_twentyone(dealer)
+
+    # todo: put it in game logic
+    def plays(self):
+        '''
+        the player will keep hitting (drawing cards) until it has won over the user or busted.
+        :return:
+        '''
+        while game_master.dealer.card_value < game_master.player.card_value:
+            game_master.dealer.hit()
+            game_master.show_hands()
+            game_master.check_end_game_conditions()
+        game_master.lose_game()
 
 
-dealer = Dealer()
+class GameMaster:
+    dealer = Dealer()
+    player = Player(15)
 
-# TODO methods are usually actions
-def player_turn():
-    '''
-    the player either does not respond properly, "hits" (wants another card) or leaves it.
-    :return:
-    '''
-    check_twentyone(player)
-    hit_decision = True
-    while hit_decision is True:
-        hit_answer = input("Do you want another card? type Y or N").upper()
-        if hit_answer not in ("Y", "N"):
-            print("Invalid input! Do you want another card, Y or N?")
-            continue
-        if hit_answer == "Y":
-            player.hit()
-            continue
-        else:
-            hit_decision = False
+    new_deck = Deck()
+    new_deck.shuffle()
 
-# TODO methods are usually actions
-def dealer_turn():
-    '''
-    the player will keep hitting (drawing cards) until it has won over the user or busted.
-    :return:
-    '''
-    while dealer.card_value < player.card_value:
-        dealer.hit()
-    lose_game()
+    def deal_starting_cards(self):
+        '''
+        dealing the starting cards: two each, updating the value of the hand every time and providing a visual for it.
+        :return:
+        '''
+        print("--> dealing your cards now.")
+        self.player.cards.append(self.new_deck.deal_one())
+        self.player.cards.append(self.new_deck.deal_one())
+        self.player.card_value_update()
+        print("--> dealing the dealer's cards.")
+        self.dealer.cards.append(self.new_deck.deal_one())
+        self.dealer.cards.append(self.new_deck.deal_one())
+        self.dealer.card_value_update()
+        self.show_hands()
 
-# TODO methods are usually actions
-def visual_during_game():
-    '''
-    the player needs a visual of what's going on at the table.
-    :return:
-    '''
-    dealer_visual = dealer.cards[1:]
-    print(f"Dealer's hand: covered card, {dealer_visual}")
-    print(f"Your hand: {player.cards}")
+    def print_score(self):
+        '''
+        used only in case of game ended.
+        :return:
+        '''
+        print(f"Your score:{self.player.card_value}")
+        print(f"Dealer's score: {self.dealer.card_value}")
 
+    def lose_game(self):
+        print("sorry, you lost!")
+        self.print_score()
+        # TODO ask play again?
+        self.ask_new_game()
+        sys.exit()
 
-def deal_starting_cards():
-    '''
-    dealing the starting cards: two each, updating the value of the hand every time and providing a visual for it.
-    :return:
-    '''
-    print("--> dealing your cards now.")
-    player.cards.append(new_deck.deal_one())
-    player.cards.append(new_deck.deal_one())
-    player.card_value_update()
-    print("--> dealing the dealer's cards.")
-    dealer.cards.append(new_deck.deal_one())
-    dealer.cards.append(new_deck.deal_one())
-    dealer.card_value_update()
-    visual_during_game()
+    def win_game(self):
+        print("you won!!")
+        self.player.give_prize()
+        self.print_score()
+        self.ask_new_game()
+        sys.exit()
 
+    # TODO: state dependency dealer/player turn?
 
-def print_score():
-    '''
-    used only in case of game ended.
-    :return:
-    '''
-    print(f"Your score:{player.card_value}")
-    print(f"Dealer's score: {dealer.card_value}")
+    def check_twentyone_points(self):
+        if self.player.card_value == 21:
+            print("you got 21!")
+            self.win_game()
+        elif self.dealer.card_value == 21:
+            print("the dealer got 21...")
+            self.lose_game()
 
+    def check_bust(self):
+        if self.player.card_value > 21:
+            print("ah, you busted!")
+            self.lose_game()
+        elif self.dealer.card_value > 21:
+            print("the dealer busted!")
+            self.win_game()
 
-def lose_game():
-    '''
-    the player loses the game. potential to start new game
-    :return:
-    '''
-    print("sorry, you lost!")
-    print_score()
-    # TODO ask play again?
-    play_again()
-    sys.exit()
+    def check_end_game_conditions(self):
+        self.check_twentyone_points()
+        self.check_bust()
 
+    def show_hands(self):
+        '''
+        the player needs a visual of what's going on at the table.
+        :return:
+        '''
+        dealer_visual = self.dealer.cards[1:]
+        print(f"Dealer's hand: covered card, {dealer_visual}")
+        print(f"Your hand: {self.player.cards}")
 
-def win_game():
-    '''
-    the player wins the game! money is added and potential to start a new game.
-    :return:
-    '''
-    print("you won!!")
-    player.add_won_money()
-    print_score()
-    play_again()
-    sys.exit()
+    def game_reset(self):
+        self.player.cards = []
+        self.player.bet_amount = ""
+        self.dealer.cards = []
 
+    def ask_new_game(self):
+        '''
+        player prompted to play again if they has enough money to bet.
+        if they want to play again, cards and bet amount will be reset.
+        :return:
+        '''
+        if self.player.money > 0:
+            new_play = input("want to play again? press Y if yes").upper()
+            if new_play == "Y":
+                self.game_reset()
+                self.play()
+        print("thanks for playing! until next time!")
 
-def play_again():
-    '''
-    player prompted to play again if they has enough money to bet.
-    if they want to play again, cards and bet amount will be reset.
-    :return:
-    '''
-    if player.money > 0:
-        new_play = input("want to play again? press Y if yes").upper()
-        if new_play == "Y":
-            # TODO game reset contains game reset
-            # TODO do player reset
-            player.cards = []
-            player.bet_amount = ""
-            dealer.cards = []
-            play()
-    print("thanks for playing! until next time!")
+    def play(self):
+        #todo : put a while loop :(
+        '''
+        game logic!
+        :return:
+        '''
+        self.player.check_bank()
+        self.player.bet()
+        self.deal_starting_cards()
+        self.player.plays()
+        self.dealer.plays()
 
 
-def check_bust(turn):
-    '''
-    Checking if player or dealer (turn input) have busted.
-    :param turn: player or dealer
-    :return:
-    '''
-    # TODO wht this function has notion of player variable
-    if turn.card_value > 21:
-        print("busted!")
-        if turn == player:
-            lose_game()
-        else:
-            win_game()
-
-# TODO name coulc be more descriptive
-def check_twentyone(turn):
-    '''
-    checking if player or dealer have won (by 21_
-    :param turn: player or dealer
-    :return:
-    '''
-    if turn.card_value == 21:
-        print("21!!!")
-        if turn == player:
-            win_game()
-        else:
-            lose_game()
-
-
-
-print("welcome to the game of BlackJack!")
-print("reminder: face cards are worth 10.")
-print("aces count as 1 or 11 - you get to pick when they're drawn!")
-
-
-def play():
-    '''
-    game logic!
-    :return:
-    '''
-    player.check_bank()
-    player.bet()
-    deal_starting_cards()
-    player_turn()
-    dealer_turn()
-
-# TODO flying method invocation group them in a main()
-play()
-
+game_master = GameMaster()
 
 def main():
-    # TODO all flying things around and
-    play()
+    print("welcome to the game of BlackJack!")
+    print("reminder: face cards are worth 10.")
+    print("aces count as 1 or 11 - you get to pick when they're drawn!")
+    game_master.play()
+
+
+main()
