@@ -14,7 +14,7 @@ ranks = ('Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
 
 class Card:
     '''
-    all cards have a suit, a rank and a value.
+    All cards have a suit, a rank and a value.
     '''
     # defines card suit, rank, value
     def __init__(self, suit, rank):
@@ -32,7 +32,7 @@ class Card:
 
 class Deck:
     '''
-    constituting the deck with a for loop until all card combinations are in the deck
+    Constituting the deck with a for loop until all card combinations are in the deck
     '''
     def __init__(self):
         self.all_cards = []
@@ -42,28 +42,29 @@ class Deck:
 
     def shuffle(self):
         '''
-        to be used before game starts
+        To be used before game starts
         :return: a shuffled deck
         '''
         random.shuffle(self.all_cards)
 
+    def is_ace_choice_valid(self, answer, accepted_values):
+        return str(answer).isdigit() is True and int(answer) in accepted_values
+
     def deal_one(self):
         '''
-        adds one cards to the hand. if it's an ace, you have to choose the value.
+        Adds one cards to the hand. if it's an ace, you have to choose the value.
         :return: a Card
         '''
         new_card = self.all_cards.pop()
         accepted_values = [1, 11]
         if new_card.rank == "Ace":
             print("an ace has been drawn.")
-            while str(new_card.value).isdigit() is False or int(new_card.value) not in accepted_values:
-                new_card.value = input("Does this ace count as 1 or 11?")
-                if str(new_card.value).isdigit() is False or int(new_card.value) not in accepted_values:
-                    print("please, only write 1 or 11.")
-                    continue
-                new_card.value = int(new_card.value)
+            answer = input("Does this ace count as 1 or 11?")
+            while not self.is_ace_choice_valid(answer, accepted_values):
+                print("please, only write 1 or 11.")
+                answer = input("Does this ace count as 1 or 11?")
+            new_card.value = int(answer)
         return new_card
-
 
 new_deck = Deck()
 new_deck.shuffle()
@@ -76,9 +77,10 @@ class Player:
     def __init__(self, money):
         self.money = money
         self.cards = []
-        self.bet_amount = ""
+        self.bet_amount = 0
         self.card_value = 0
 
+    # TODO this check method does no check
     def check_bank(self):
         '''
         a string telling you how much money you got
@@ -92,6 +94,7 @@ class Player:
         :return: an input and an update of self.bet_amount
         '''
         allowed_range = range(1, self.money + 1)
+
         while str(self.bet_amount).isdigit() is False or int(self.bet_amount) not in allowed_range:
             self.bet_amount = input("How much do you want to bet?")
             if self.bet_amount.isdigit() is False:
@@ -108,6 +111,7 @@ class Player:
         self.bet_amount = int(self.bet_amount)
         self.money -= self.bet_amount
 
+    # TODO if you call it "add money" is more reusable.
     def add_won_money(self):
         '''
         if you win, it will add double the money you bet
@@ -115,6 +119,7 @@ class Player:
         '''
         self.money += self.bet_amount * 2
 
+    # TODO methods are usually actions -> update card value
     def card_value_update(self):
         '''
         to use every time a new card is drawn
@@ -129,8 +134,8 @@ class Player:
         if the player decides to hit (add a card)
         :return: new card in hand, check for bust/win
         '''
-        player.cards.append(new_deck.deal_one())
-        player.card_value_update()
+        self.cards.append(new_deck.deal_one())
+        self.card_value_update()
         visual_during_game()
         check_bust(player)
         check_twentyone(player)
@@ -147,6 +152,7 @@ class Dealer:
         self.cards = []
         self.card_value = 0
 
+    # TODO methods are usually actions
     def card_value_update(self):
         '''
         to use every time a new card is drawn
@@ -172,6 +178,7 @@ class Dealer:
 
 dealer = Dealer()
 
+# TODO methods are usually actions
 def player_turn():
     '''
     the player either does not respond properly, "hits" (wants another card) or leaves it.
@@ -190,6 +197,7 @@ def player_turn():
         else:
             hit_decision = False
 
+# TODO methods are usually actions
 def dealer_turn():
     '''
     the player will keep hitting (drawing cards) until it has won over the user or busted.
@@ -199,6 +207,7 @@ def dealer_turn():
         dealer.hit()
     lose_game()
 
+# TODO methods are usually actions
 def visual_during_game():
     '''
     the player needs a visual of what's going on at the table.
@@ -241,6 +250,7 @@ def lose_game():
     '''
     print("sorry, you lost!")
     print_score()
+    # TODO ask play again?
     play_again()
     sys.exit()
 
@@ -266,19 +276,22 @@ def play_again():
     if player.money > 0:
         new_play = input("want to play again? press Y if yes").upper()
         if new_play == "Y":
+            # TODO game reset contains game reset
+            # TODO do player reset
             player.cards = []
-            dealer.cards = []
             player.bet_amount = ""
+            dealer.cards = []
             play()
     print("thanks for playing! until next time!")
 
 
 def check_bust(turn):
     '''
-    checking if player or dealer (turn input) have busted.
+    Checking if player or dealer (turn input) have busted.
     :param turn: player or dealer
     :return:
     '''
+    # TODO wht this function has notion of player variable
     if turn.card_value > 21:
         print("busted!")
         if turn == player:
@@ -286,7 +299,7 @@ def check_bust(turn):
         else:
             win_game()
 
-
+# TODO name coulc be more descriptive
 def check_twentyone(turn):
     '''
     checking if player or dealer have won (by 21_
@@ -318,5 +331,10 @@ def play():
     player_turn()
     dealer_turn()
 
-
+# TODO flying method invocation group them in a main()
 play()
+
+
+def main():
+    # TODO all flying things around and
+    play()
