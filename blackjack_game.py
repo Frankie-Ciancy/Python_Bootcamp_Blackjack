@@ -11,6 +11,35 @@ values = {'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eig
 suits = ('Hearts', 'Diamonds', 'Spades', 'Clubs')
 ranks = ('Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Jack', 'Queen', 'King', 'Ace')
 
+class InputLayer:
+
+    def check_bet_input(self):
+        allowed_bet_range = False
+        while allowed_bet_range == False:
+            game_master.player.bet_amount = input("How much do you want to bet?")
+            if game_master.player.bet_amount.isdigit() is False:
+                print("hey, please input only integers from 1 to however much you can afford!")
+                continue
+            if game_master.player.bet_amount == "0":
+                print("you have to bet something!")
+                continue
+            if int(game_master.player.bet_amount) > game_master.player.money:
+                print("you don't have THAT kind of money.")
+                continue
+            else:
+                allowed_bet_range = True
+        return game_master.player.bet_amount
+
+    def check_ace_value_input(self, new_card):
+        accepted_values = [1, 11]
+        if new_card.rank == "Ace":
+            print("an ace has been drawn.")
+            new_card.value = input("Does this ace count as 1 or 11?")
+            while str(new_card.value).isdigit() is False or int(new_card.value) not in accepted_values:
+                print("please, only write 1 or 11.")
+                new_card.value = input("Does this ace count as 1 or 11?")
+        return new_card.value
+
 
 class Card:
     '''
@@ -49,8 +78,6 @@ class Deck:
         '''
         random.shuffle(self.all_cards)
 
-    def is_ace_choice_valid(self, answer, accepted_values):
-        return str(answer).isdigit() is True and int(answer) in accepted_values
 
     def deal_one(self):
         '''
@@ -58,14 +85,8 @@ class Deck:
         :return: a Card
         '''
         new_card = self.all_cards.pop()
-        accepted_values = [1, 11]
-        if new_card.rank == "Ace":
-            print("an ace has been drawn.")
-            answer = input("Does this ace count as 1 or 11?")
-            while not self.is_ace_choice_valid(answer, accepted_values):
-                print("please, only write 1 or 11.")
-                answer = input("Does this ace count as 1 or 11?")
-            new_card.value = int(answer)
+
+        new_card.value = int(game_master.input_layer.check_ace_value_input(new_card))
         return new_card
 
 
@@ -80,51 +101,19 @@ class Player:
         self.bet_amount = 0
         self.card_value = 0
 
-    # TODO this check method does no check
-    def check_bank(self):
-        '''
-        a string telling you how much money you got
-        :return: a printed str
-        '''
-        return print(f'You still have {self.money} to bet.')
-
     def bet(self):
         '''
         betting the money.
         :return: an input and an update of self.bet_amount
         '''
-        allowed_range = range(1, self.money + 1)
 
-        # TODO is responsability of the player to vet the output?
-        # TODO this could be a function like: validate bet input (?)
-        # but keep the bet_amount) > self.money:
-        while str(self.bet_amount).isdigit() is False or int(self.bet_amount) not in allowed_range:
-            self.bet_amount = input("How much do you want to bet?")
-            if self.bet_amount.isdigit() is False:
-                print("hey, please input only integers from 1 to however much you can afford!")
-                continue
-            if self.bet_amount == "0":
-                print("you have to bet something!")
-                continue
-            if int(self.bet_amount) > self.money:
-                print("you don't have THAT kind of money.")
-                continue
+        game_master.input_layer.check_bet_input()
         print(f"alright, you will bet {self.bet_amount}")
 
-        # TODO i think you should check here that one can bet the amount
         self.bet_amount = int(self.bet_amount)
         self.money -= self.bet_amount
 
-    # TODO game master responsibility
-    def give_prize(self):
-        '''
-        if you win, it will add double the money you bet
-        :return: update to money
-        '''
-        self.money += self.bet_amount * 2
-
-    # TODO methods are usually actions -> update card value
-    def card_value_update(self):
+    def update_card_value(self):
         '''
         to use every time a new card is drawn
         :return: an update to card.value
@@ -139,29 +128,7 @@ class Player:
         :return: new card in hand, check for bust/win
         '''
         self.cards.append(game_master.new_deck.deal_one())
-        self.card_value_update()
-
-    #TODO: input output
-    # todo: put it in game logic
-    def plays(self):
-        '''
-        the player either does not respond properly, "hits" (wants another card) or leaves it.
-        :return:
-        '''
-        game_master.check_end_game_conditions()
-        hit_decision = True
-        while hit_decision is True:
-            hit_answer = input("Do you want another card? type Y or N").upper()
-            if hit_answer not in ("Y", "N"):
-                print("Invalid input! Do you want another card, Y or N?")
-                continue
-            if hit_answer == "Y":
-                game_master.player.hit()
-                game_master.show_hands()
-                game_master.check_end_game_conditions()
-                continue
-            else:
-                hit_decision = False
+        self.update_card_value()
 
 
 class Dealer:
@@ -173,8 +140,7 @@ class Dealer:
         self.cards = []
         self.card_value = 0
 
-    # TODO methods are usually actions
-    def card_value_update(self):
+    def update_card_value(self):
         '''
         to use every time a new card is drawn
         :return: an update to card.value
@@ -191,27 +157,32 @@ class Dealer:
         game_master.check_end_game_conditions()
         print("the dealer draws a card...")
         self.cards.append(game_master.new_deck.deal_one())
-        self.card_value_update()
+        self.update_card_value()
 
-    # todo: put it in game logic
-    def plays(self):
-        '''
-        the player will keep hitting (drawing cards) until it has won over the user or busted.
-        :return:
-        '''
-        while game_master.dealer.card_value < game_master.player.card_value:
-            game_master.dealer.hit()
-            game_master.show_hands()
-            game_master.check_end_game_conditions()
-        game_master.lose_game()
 
 
 class GameMaster:
     dealer = Dealer()
     player = Player(15)
+    input_layer = InputLayer()
 
     new_deck = Deck()
     new_deck.shuffle()
+
+    def announce_money(self):
+        '''
+        a string telling you how much money you got
+        :return: a printed str
+        '''
+        return print(f'You still have {self.player.money} to bet.')
+
+    def give_prize(self):
+        '''
+        if you win, it will add double the money you bet
+        :return: update to money
+        '''
+        self.player.money += self.player.bet_amount * 2
+
 
     def deal_starting_cards(self):
         '''
@@ -221,11 +192,11 @@ class GameMaster:
         print("--> dealing your cards now.")
         self.player.cards.append(self.new_deck.deal_one())
         self.player.cards.append(self.new_deck.deal_one())
-        self.player.card_value_update()
+        self.player.update_card_value()
         print("--> dealing the dealer's cards.")
         self.dealer.cards.append(self.new_deck.deal_one())
         self.dealer.cards.append(self.new_deck.deal_one())
-        self.dealer.card_value_update()
+        self.dealer.update_card_value()
         self.show_hands()
 
     def print_score(self):
@@ -239,18 +210,15 @@ class GameMaster:
     def lose_game(self):
         print("sorry, you lost!")
         self.print_score()
-        # TODO ask play again?
         self.ask_new_game()
         sys.exit()
 
     def win_game(self):
         print("you won!!")
-        self.player.give_prize()
+        self.give_prize()
         self.print_score()
         self.ask_new_game()
         sys.exit()
-
-    # TODO: state dependency dealer/player turn?
 
     def check_twentyone_points(self):
         if self.player.card_value == 21:
@@ -299,17 +267,45 @@ class GameMaster:
                 self.play()
         print("thanks for playing! until next time!")
 
+    def player_plays(self):
+        self.check_end_game_conditions()
+        hit_decision = True
+        while hit_decision is True:
+            hit_answer = input("Do you want another card? type Y or N").upper()
+            if hit_answer not in ("Y", "N"):
+                print("Invalid input! Do you want another card, Y or N?")
+                continue
+            if hit_answer == "Y":
+                self.player.hit()
+                self.show_hands()
+                self.check_end_game_conditions()
+                continue
+            else:
+                hit_decision = False
+
+    def dealer_plays(self):
+        '''
+        the player will keep hitting (drawing cards) until it has won over the user or busted.
+        :return:
+        '''
+        while self.dealer.card_value < self.player.card_value:
+            self.dealer.hit()
+            self.show_hands()
+            self.check_end_game_conditions()
+        self.lose_game()
+
+
+
     def play(self):
-        #todo : put a while loop :(
         '''
         game logic!
         :return:
         '''
-        self.player.check_bank()
+        self.announce_money()
         self.player.bet()
         self.deal_starting_cards()
-        self.player.plays()
-        self.dealer.plays()
+        self.player_plays()
+        self.dealer_plays()
 
 
 game_master = GameMaster()
