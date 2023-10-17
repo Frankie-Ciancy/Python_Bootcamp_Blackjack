@@ -3,6 +3,7 @@ random --> provides a function to exit the program
 sys --> provides a function to exit the program
 '''
 import random
+import string
 import sys
 
 values = {'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8,
@@ -11,26 +12,27 @@ values = {'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eig
 suits = ('Hearts', 'Diamonds', 'Spades', 'Clubs')
 ranks = ('Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Jack', 'Queen', 'King', 'Ace')
 
+
 class InputLayer:
 
-    def check_bet_input(self):
+    def ask_bet_amount(self) -> int:
         allowed_bet_range = False
         while allowed_bet_range == False:
-            game_master.player.bet_amount = input("How much do you want to bet?")
-            if game_master.player.bet_amount.isdigit() is False:
+            bet_amount = input("How much do you want to bet?")
+            if bet_amount.isdigit() is False:
                 print("hey, please input only integers from 1 to however much you can afford!")
                 continue
-            if game_master.player.bet_amount == "0":
+            if bet_amount == "0":
                 print("you have to bet something!")
                 continue
-            if int(game_master.player.bet_amount) > game_master.player.money:
+            if int(bet_amount) > game_master.player.money:
                 print("you don't have THAT kind of money.")
                 continue
             else:
                 allowed_bet_range = True
-        return game_master.player.bet_amount
+        return bet_amount
 
-    def check_ace_value_input(self, new_card):
+    def ask_ace_value_input(self, new_card) -> int:
         accepted_values = [1, 11]
         if new_card.rank == "Ace":
             print("an ace has been drawn.")
@@ -40,11 +42,23 @@ class InputLayer:
                 new_card.value = input("Does this ace count as 1 or 11?")
         return new_card.value
 
+    def does_user_want_to_draw(self) -> bool:
+        while True:
+            hit_answer = input("Do you want another card? type Y or N").upper()
+            if hit_answer not in ("Y", "N"):
+                print("Invalid input! Do you want another card, Y or N?")
+                continue
+            return hit_answer == "Y"
+
+    def does_user_want_to_play_again(self) -> bool:
+        new_play = input("Do want to play again? press Y if yes").upper()
+        return new_play == "Y"
+
 
 class Card:
-    '''
+    """
     All cards have a suit, a rank and a value.
-    '''
+    """
 
     # defines card suit, rank, value
     def __init__(self, suit, rank):
@@ -72,74 +86,32 @@ class Deck:
                 self.all_cards.append(Card(suit, rank))
 
     def shuffle(self):
-        '''
+        """
         To be used before game starts
         :return: a shuffled deck
-        '''
+        """
         random.shuffle(self.all_cards)
 
-
-    def deal_one(self):
-        '''
+    def deal_one(self) -> Card:
+        """
         Adds one cards to the hand. if it's an ace, you have to choose the value.
         :return: a Card
-        '''
+        """
         new_card = self.all_cards.pop()
 
-        new_card.value = int(game_master.input_layer.check_ace_value_input(new_card))
+        new_card.value = int(game_master.input.ask_ace_value_input(new_card))
         return new_card
 
 
 class Player:
-    '''
-    the human player of this came
-    '''
-
-    def __init__(self, money):
-        self.money = money
-        self.cards = []
-        self.bet_amount = 0
-        self.card_value = 0
-
-    def bet(self):
-        '''
-        betting the money.
-        :return: an input and an update of self.bet_amount
-        '''
-
-        game_master.input_layer.check_bet_input()
-        print(f"alright, you will bet {self.bet_amount}")
-
-        self.bet_amount = int(self.bet_amount)
-        self.money -= self.bet_amount
-
-    def update_card_value(self):
-        '''
-        to use every time a new card is drawn
-        :return: an update to card.value
-        '''
-        self.card_value = 0
-        for card in self.cards:
-            self.card_value += card.value
-
-    def hit(self):
-        '''
-        if the player decides to hit (add a card)
-        :return: new card in hand, check for bust/win
-        '''
-        self.cards.append(game_master.new_deck.deal_one())
-        self.update_card_value()
-
-
-class Dealer:
-    '''
-    the computer dealer
-    '''
-
     def __init__(self):
         self.cards = []
         self.card_value = 0
 
+    def take_card(self, card):
+        self.cards.append(card)
+        self.update_card_value()
+
     def update_card_value(self):
         '''
         to use every time a new card is drawn
@@ -149,25 +121,224 @@ class Dealer:
         for card in self.cards:
             self.card_value += card.value
 
+    def is_winning(self) -> bool:
+        return self.card_value == 21
+
+    def reset(self):
+        self.cards = []
+
+class User(Player):
+    """
+    the human player of this came
+    """
+
+    def __init__(self, money):
+        Player.__init__(self)
+        self.money = money
+        self.bet_amount = 0
+
+    def set_bet_amount(self, bet_amount):
+        """
+        betting the money.
+        :return: an input and an update of self.bet_amount
+        """
+        self.bet_amount = int(bet_amount)
+        self.money -= self.bet_amount
+
+    def reset(self):
+        self.cards = []
+        self.bet_amount = ""
+
+
+class Dealer(Player):
+    """
+    the computer dealer
+    """
+
+    def __init__(self):
+        Player.__init__(self)
+
     def hit(self):
-        '''
+        """
         adding a card to the dealer's deck
         :return:a Card
-        '''
-        game_master.check_end_game_conditions()
+        """
         print("the dealer draws a card...")
-        self.cards.append(game_master.new_deck.deal_one())
+        self.cards.append(game_master.deck.deal_one())
         self.update_card_value()
 
+
+class GameStatus:
+    ending_reason: string
+
+    def __init__(self):
+        self.is_user_the_winner = False
+        self.is_game_finished = False
+
+    def set_to_lost(self, reason):
+        self.ending_reason = reason
+        self.is_user_the_winner = False
+        self.is_game_finished = True
+
+    def set_to_win(self, reason):
+        self.ending_reason = reason
+        self.is_user_the_winner = True
+        self.is_game_finished = True
+
+    def reset(self):
+        self.is_game_finished = False
+        self.is_user_the_winner = False
+        self.ending_reason = ""
 
 
 class GameMaster:
     dealer = Dealer()
-    player = Player(15)
-    input_layer = InputLayer()
+    player = User(15)
+    input = InputLayer()
 
-    new_deck = Deck()
-    new_deck.shuffle()
+    deck = Deck()
+    deck.shuffle()
+
+    def __init__(self):
+        self.game_status = GameStatus()
+
+    def give_prize(self):
+        """
+        if you win, it will add double the money you bet
+        :return: update to money
+        """
+        self.player.money += self.player.bet_amount * 2
+
+    def deal_starting_cards(self):
+        """
+        dealing the starting cards: two each, updating the value of the hand every time and providing a visual for it.
+        :return:
+        """
+        print("--> dealing your cards now.")
+        self.player.take_card(self.deck.deal_one())
+        self.player.take_card(self.deck.deal_one())
+
+        print("--> dealing the dealer's cards.")
+        self.dealer.take_card(self.deck.deal_one())
+        self.dealer.take_card(self.deck.deal_one())
+
+    def print_score(self):
+        """
+        used only in case of game ended.
+        :return:
+        """
+        print(f"Your score:{self.player.card_value}")
+        print(f"Dealer's score: {self.dealer.card_value}")
+
+    def announce_won_game(self):
+        print("you won!!")
+
+    def check_dealer_end_game_conditions(self):
+        if self.dealer.card_value > 21:
+            self.game_status.set_to_win("the dealer busted!")
+            return
+
+        if self.dealer.is_winning():
+            self.game_status.set_to_lost("the dealer got 21...")
+            return
+
+    def check_player_end_game_conditions(self):
+        if self.player.is_winning():
+            self.game_status.set_to_win("you got 21!")
+            return
+
+        if self.player.card_value > 21:
+            self.game_status.set_to_lost("ah, you busted!")
+            return
+
+    def show_hands(self):
+        """
+        the player needs a visual of what's going on at the table.
+        :return:
+        """
+        dealer_visual = self.dealer.cards[1:]
+        print(f"Dealer's hand: covered card, {dealer_visual}")
+        print(f"Your hand: {self.player.cards}")
+
+    def reset_game(self):
+        self.player.reset()
+        self.dealer.reset()
+        self.game_status.reset()
+
+    def stop(self):
+        print("thanks for playing! until next time!")
+        self.print_score()
+        sys.exit()
+
+    def dealer_plays(self):
+        """
+        the player will keep hitting (drawing cards) until it has won over the user or busted.
+        :return:
+        """
+        while self.is_game_finished() is False and self.dealer.card_value < self.player.card_value:
+            self.dealer.hit()
+            self.show_hands()
+            self.check_dealer_end_game_conditions()
+
+    def play_one_game(self):
+        """
+        game logic!
+        :return:
+        """
+        self.announce_money()
+        self.player.set_bet_amount(self.input.ask_bet_amount())
+        self.deal_starting_cards()
+        self.show_hands()
+        self.check_end_game_conditions()
+
+        self.user_plays()
+
+        if self.is_game_finished():
+            if self.game_status.is_user_the_winner:
+                self.give_prize()
+            self.announce_match_result()
+            return
+
+        self.dealer_plays()
+
+        if self.game_status.is_user_the_winner:
+            self.give_prize()
+        self.announce_match_result()
+
+    def user_plays(self):
+        player_wants_to_draw = self.input.does_user_want_to_draw()
+        while player_wants_to_draw and self.is_game_finished() is False:
+
+            self.give_card_to_player()
+            self.show_hands()
+            self.check_player_end_game_conditions()
+
+            if self.is_game_finished() is False:
+                player_wants_to_draw = self.input.does_user_want_to_draw()
+
+    def is_game_finished(self) -> bool:
+        return self.game_status.is_game_finished
+
+    def give_card_to_player(self):
+        self.player.take_card(self.deck.deal_one())
+
+    def announce_match_result(self):
+        print(self.game_status.ending_reason)
+        if self.game_status.is_user_the_winner:
+            self.announce_won_game()
+        else:
+            self.announce_lost_game()
+        self.print_score()
+        self.announce_money()
+
+    def check_end_game_conditions(self):
+        self.check_player_end_game_conditions()
+        if self.is_game_finished:
+            return
+
+        self.check_dealer_end_game_conditions()
+        if self.is_game_finished:
+            return
 
     def announce_money(self):
         '''
@@ -176,139 +347,23 @@ class GameMaster:
         '''
         return print(f'You still have {self.player.money} to bet.')
 
-    def give_prize(self):
-        '''
-        if you win, it will add double the money you bet
-        :return: update to money
-        '''
-        self.player.money += self.player.bet_amount * 2
-
-
-    def deal_starting_cards(self):
-        '''
-        dealing the starting cards: two each, updating the value of the hand every time and providing a visual for it.
-        :return:
-        '''
-        print("--> dealing your cards now.")
-        self.player.cards.append(self.new_deck.deal_one())
-        self.player.cards.append(self.new_deck.deal_one())
-        self.player.update_card_value()
-        print("--> dealing the dealer's cards.")
-        self.dealer.cards.append(self.new_deck.deal_one())
-        self.dealer.cards.append(self.new_deck.deal_one())
-        self.dealer.update_card_value()
-        self.show_hands()
-
-    def print_score(self):
-        '''
-        used only in case of game ended.
-        :return:
-        '''
-        print(f"Your score:{self.player.card_value}")
-        print(f"Dealer's score: {self.dealer.card_value}")
-
-    def lose_game(self):
+    def announce_lost_game(self):
         print("sorry, you lost!")
-        self.print_score()
-        self.ask_new_game()
-        sys.exit()
-
-    def win_game(self):
-        print("you won!!")
-        self.give_prize()
-        self.print_score()
-        self.ask_new_game()
-        sys.exit()
-
-    def check_twentyone_points(self):
-        if self.player.card_value == 21:
-            print("you got 21!")
-            self.win_game()
-        elif self.dealer.card_value == 21:
-            print("the dealer got 21...")
-            self.lose_game()
-
-    def check_bust(self):
-        if self.player.card_value > 21:
-            print("ah, you busted!")
-            self.lose_game()
-        elif self.dealer.card_value > 21:
-            print("the dealer busted!")
-            self.win_game()
-
-    def check_end_game_conditions(self):
-        self.check_twentyone_points()
-        self.check_bust()
-
-    def show_hands(self):
-        '''
-        the player needs a visual of what's going on at the table.
-        :return:
-        '''
-        dealer_visual = self.dealer.cards[1:]
-        print(f"Dealer's hand: covered card, {dealer_visual}")
-        print(f"Your hand: {self.player.cards}")
-
-    def game_reset(self):
-        self.player.cards = []
-        self.player.bet_amount = ""
-        self.dealer.cards = []
-
-    def ask_new_game(self):
-        '''
-        player prompted to play again if they has enough money to bet.
-        if they want to play again, cards and bet amount will be reset.
-        :return:
-        '''
-        if self.player.money > 0:
-            new_play = input("want to play again? press Y if yes").upper()
-            if new_play == "Y":
-                self.game_reset()
-                self.play()
-        print("thanks for playing! until next time!")
-
-    def player_plays(self):
-        self.check_end_game_conditions()
-        hit_decision = True
-        while hit_decision is True:
-            hit_answer = input("Do you want another card? type Y or N").upper()
-            if hit_answer not in ("Y", "N"):
-                print("Invalid input! Do you want another card, Y or N?")
-                continue
-            if hit_answer == "Y":
-                self.player.hit()
-                self.show_hands()
-                self.check_end_game_conditions()
-                continue
-            else:
-                hit_decision = False
-
-    def dealer_plays(self):
-        '''
-        the player will keep hitting (drawing cards) until it has won over the user or busted.
-        :return:
-        '''
-        while self.dealer.card_value < self.player.card_value:
-            self.dealer.hit()
-            self.show_hands()
-            self.check_end_game_conditions()
-        self.lose_game()
-
-
 
     def play(self):
-        '''
-        game logic!
-        :return:
-        '''
-        self.announce_money()
-        self.player.bet()
-        self.deal_starting_cards()
-        self.player_plays()
-        self.dealer_plays()
+        while True:
+            self.reset_game()
+            self.play_one_game()
+
+            if self.player.money <= 0 or self.input.does_user_want_to_play_again() is False:
+                break
+
+        self.stop()
+
 
 
 game_master = GameMaster()
+
 
 def main():
     print("welcome to the game of BlackJack!")
